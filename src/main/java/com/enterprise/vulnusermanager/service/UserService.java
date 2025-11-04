@@ -28,15 +28,26 @@ public class UserService {
     private EntityManager entityManager;
 
     /**
-     * Save a new user to the database
+     * VULNERABLE: Save a new user to the database (CWE-20, CWE-200)
      * No password hashing - stored as plain text
+     * No input validation - accepts null/empty username
+     * Logs sensitive password information - INTENTIONALLY VULNERABLE
      * @param user the user to save
      * @return the saved user
      */
     @Transactional
     public User saveUser(User user) {
-        log.info("Saving user: {}", user.getUsername());
-        // No password encryption - intentionally vulnerable
+        // VULNERABLE CWE-200: Logging sensitive password information
+        log.info("Saving user {} with password {}",
+                user != null ? user.getUsername() : "null",
+                user != null ? user.getPassword() : "null");
+
+        log.warn("SECURITY WARNING: CWE-200 - Exposing password in logs!");
+        log.warn("SECURITY WARNING: CWE-20 - No input validation on username/password!");
+
+        // VULNERABLE CWE-20: No validation on input - accepts null/empty values
+        // VULNERABLE: No password encryption - intentionally vulnerable
+        // VULNERABLE: No check if user is null
         return userRepository.save(user);
     }
 

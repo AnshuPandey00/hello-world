@@ -9,7 +9,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.ModelAndView;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * UserController
@@ -37,19 +39,22 @@ public class UserController {
     }
 
     /**
-     * Register a new user
+     * VULNERABLE: Register a new user (CWE-20 Improper Input Validation)
      * No authentication required
-     * No input validation or sanitization
+     * No input validation or sanitization - accepts null/empty username
+     * INTENTIONALLY VULNERABLE for SAST detection
      * @param user the user to register
      * @return the created user
      */
     @PostMapping("/register")
     public ResponseEntity<User> registerUser(@RequestBody User user) {
-        log.info("POST /api/register - Registering user: {}", user.getUsername());
+        log.info("POST /api/register - Registering user: {}", user != null ? user.getUsername() : "null");
+        log.warn("SECURITY WARNING: No input validation - CWE-20 Improper Input Validation vulnerability!");
 
-        // No validation on input
-        // No check for duplicate usernames
-        // Password stored as plain text
+        // VULNERABLE: No validation on input - accepts null/empty username
+        // VULNERABLE: No check for duplicate usernames
+        // VULNERABLE: Password stored as plain text
+        // VULNERABLE: Allows null user object
 
         User savedUser = userService.saveUser(user);
         return ResponseEntity.status(HttpStatus.CREATED).body(savedUser);
@@ -141,6 +146,49 @@ public class UserController {
         });
 
         return ResponseEntity.ok("User deleted (no authorization required)");
+    }
+
+    /**
+     * VULNERABLE: Incorrect Authorization (CWE-863)
+     * Edit user endpoint with flawed authorization check
+     * Uses == operator on strings instead of equals() - INTENTIONALLY VULNERABLE
+     * @param id the user ID to edit
+     * @param updates the updated user data
+     * @return the updated user
+     */
+    @PostMapping("/edit-user/{id}")
+    public ResponseEntity<Map<String, Object>> editUser(
+            @PathVariable Long id,
+            @RequestParam String currentUserId,
+            @RequestBody Map<String, Object> updates) {
+
+        log.info("POST /api/edit-user/{} - VULNERABLE Incorrect Authorization endpoint", id);
+        log.warn("SECURITY WARNING: Flawed authorization check - CWE-863 Incorrect Authorization vulnerability!");
+
+        Map<String, Object> result = new HashMap<>();
+
+        // VULNERABLE: Using == operator on strings instead of equals()
+        // This compares object references, not values, so authorization can be bypassed
+        String targetUserId = String.valueOf(id);
+
+        log.warn("VULNERABLE: Comparing strings with == operator: '{}' == '{}'", currentUserId, targetUserId);
+
+        if (currentUserId == targetUserId) {
+            log.warn("Authorization check PASSED (but VULNERABLE due to == operator)");
+            result.put("authorized", true);
+            result.put("message", "User authorized to edit (vulnerable check)");
+            result.put("vulnerability", "CWE-863: Using == on strings instead of equals()");
+        } else {
+            log.warn("Authorization check FAILED due to string comparison with ==");
+            result.put("authorized", false);
+            result.put("message", "Not authorized (failed due to == operator)");
+            result.put("vulnerability", "CWE-863: String comparison with == is flawed");
+        }
+
+        result.put("currentUserId", currentUserId);
+        result.put("targetUserId", targetUserId);
+
+        return ResponseEntity.ok(result);
     }
 
 }
