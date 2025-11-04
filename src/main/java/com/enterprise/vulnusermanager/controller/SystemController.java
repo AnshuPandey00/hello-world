@@ -84,4 +84,67 @@ public class SystemController {
         }
     }
 
+    /**
+     * VULNERABLE: OS Command Injection via ProcessBuilder (CWE-77)
+     * Executes system commands with user-controlled input using ProcessBuilder
+     * Uses ProcessBuilder with cmd.split(" ") without sanitization
+     * NO input validation, NO command whitelist - INTENTIONALLY VULNERABLE
+     * @param request JSON containing cmd string
+     * @return command output as JSON
+     */
+    @PostMapping("/run-command")
+    public ResponseEntity<Map<String, Object>> runCommand(@RequestBody Map<String, String> request) {
+        String cmd = request.get("cmd");
+
+        log.info("POST /api/run-command - VULNERABLE OS Command Injection endpoint", cmd);
+        log.warn("SECURITY WARNING: Command injection via ProcessBuilder - CWE-77 OS Command Injection vulnerability!");
+        log.warn("VULNERABLE: Executing command: {}", cmd);
+
+        Map<String, Object> result = new HashMap<>();
+
+        try {
+            // VULNERABLE: Using ProcessBuilder with cmd.split(" ") without sanitization
+            // This allows command injection through special characters, arguments, and chaining
+            // No validation, no whitelist, no escaping
+            log.warn("VULNERABLE: Splitting command with spaces - allows arbitrary arguments!");
+
+            ProcessBuilder processBuilder = new ProcessBuilder(cmd.split(" "));
+            Process process = processBuilder.start();
+
+            // Capture command output
+            BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+            BufferedReader errorReader = new BufferedReader(new InputStreamReader(process.getErrorStream()));
+
+            StringBuilder output = new StringBuilder();
+            StringBuilder errorOutput = new StringBuilder();
+            String line;
+
+            while ((line = reader.readLine()) != null) {
+                output.append(line).append("\n");
+            }
+
+            while ((line = errorReader.readLine()) != null) {
+                errorOutput.append(line).append("\n");
+            }
+
+            int exitCode = process.waitFor();
+
+            result.put("command", cmd);
+            result.put("output", output.toString());
+            result.put("error", errorOutput.toString());
+            result.put("exitCode", exitCode);
+            result.put("warning", "Command executed without input validation - CWE-77");
+
+            log.warn("Command executed WITHOUT input validation or sanitization!");
+
+            return ResponseEntity.ok(result);
+
+        } catch (Exception e) {
+            log.error("Error executing command: {}", e.getMessage());
+            result.put("error", "Error executing command: " + e.getMessage());
+            result.put("command", cmd);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(result);
+        }
+    }
+
 }
