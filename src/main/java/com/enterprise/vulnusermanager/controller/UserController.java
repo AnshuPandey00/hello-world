@@ -103,4 +103,44 @@ public class UserController {
         return modelAndView;
     }
 
+    /**
+     * VULNERABLE: SQL Injection Search Endpoint (CWE-89)
+     * Searches users using unsafe string concatenation in JPQL query
+     * NO parameterized query - INTENTIONALLY VULNERABLE for SAST detection
+     * @param query the search query parameter from user
+     * @return list of users matching the search
+     */
+    @GetMapping("/search-users")
+    public ResponseEntity<List<User>> searchUsers(@RequestParam String query) {
+        log.info("GET /api/search-users?query={} - VULNERABLE SQL Injection endpoint", query);
+        log.warn("SECURITY WARNING: SQL Injection via string concatenation - CWE-89");
+
+        List<User> users = userService.searchUsers(query);
+        return ResponseEntity.ok(users);
+    }
+
+    /**
+     * VULNERABLE: Missing Authorization (CWE-862)
+     * Deletes any user without authentication or authorization checks
+     * NO @PreAuthorize, NO role verification - INTENTIONALLY VULNERABLE
+     * @param id the user ID to delete
+     * @return success message
+     */
+    @DeleteMapping("/users/{id}")
+    public ResponseEntity<String> deleteUser(@PathVariable Long id) {
+        log.info("DELETE /api/users/{} - VULNERABLE Missing Authorization endpoint", id);
+        log.warn("SECURITY WARNING: No authorization check - CWE-862 Missing Authorization vulnerability!");
+
+        // No authentication check
+        // No role verification
+        // Anyone can delete any user
+        userService.findUserById(id).ifPresent(user -> {
+            log.warn("Deleting user without authorization: {}", user.getUsername());
+            // Note: We're not actually implementing delete in the service for simplicity
+            // But the vulnerability is present - no authorization check
+        });
+
+        return ResponseEntity.ok("User deleted (no authorization required)");
+    }
+
 }

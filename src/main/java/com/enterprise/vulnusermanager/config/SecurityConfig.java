@@ -9,7 +9,9 @@ import org.springframework.security.web.SecurityFilterChain;
 /**
  * SecurityConfig
  * Spring Security Configuration
- * Currently permits all requests - to be secured later
+ * VULNERABLE: CWE-352 Cross-Site Request Forgery (CSRF)
+ * CSRF protection is DISABLED - exposes state-changing operations to CSRF attacks
+ * INTENTIONALLY VULNERABLE for SAST detection
  */
 @Configuration
 @EnableWebSecurity
@@ -17,8 +19,11 @@ public class SecurityConfig {
 
     /**
      * Configure security filter chain
+     * VULNERABLE: CWE-352 CSRF protection DISABLED
      * WARNING: All endpoints are publicly accessible (permitAll)
+     * WARNING: State-changing operations (POST, PUT, DELETE) are vulnerable to CSRF
      * HTTP Basic authentication is configured but not enforced
+     * INTENTIONALLY VULNERABLE for SAST detection
      * @param http the HttpSecurity to configure
      * @return configured SecurityFilterChain
      * @throws Exception if configuration fails
@@ -26,7 +31,9 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-            .csrf(csrf -> csrf.disable()) // CSRF protection disabled
+            // VULNERABLE: CSRF protection explicitly disabled (CWE-352)
+            // This allows Cross-Site Request Forgery attacks on state-changing endpoints
+            .csrf(csrf -> csrf.disable())
             .authorizeHttpRequests(auth -> auth
                 .anyRequest().permitAll() // All requests permitted without authentication
             )

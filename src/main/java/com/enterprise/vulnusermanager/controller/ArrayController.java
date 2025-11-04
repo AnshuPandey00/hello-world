@@ -10,8 +10,8 @@ import java.util.Map;
 
 /**
  * ArrayController
- * VULNERABLE: CWE-787 Out-of-bounds Write
- * Demonstrates buffer overflow vulnerability through unchecked array writes
+ * VULNERABLE: CWE-787 Out-of-bounds Write & CWE-125 Out-of-bounds Read
+ * Demonstrates buffer overflow and out-of-bounds read vulnerabilities
  * INTENTIONALLY VULNERABLE for SAST detection
  */
 @RestController
@@ -39,6 +39,26 @@ public class ArrayController {
         log.warn("SECURITY WARNING: No bounds checking - CWE-787 Out-of-bounds Write vulnerability!");
 
         Map<String, Object> result = arrayService.writeToBuffer(index, value);
+
+        return ResponseEntity.ok(result);
+    }
+
+    /**
+     * VULNERABLE: Out-of-bounds Read Endpoint (CWE-125)
+     * Accepts index without bounds checking
+     * Reads from a fixed-size buffer (size 10) without validation
+     * INTENTIONALLY VULNERABLE for SAST detection
+     * @param request JSON containing index
+     * @return the read character and buffer info as JSON
+     */
+    @PostMapping("/array-read")
+    public ResponseEntity<Map<String, Object>> readFromArray(@RequestBody Map<String, Object> request) {
+        Integer index = (Integer) request.get("index");
+
+        log.info("POST /api/array-read - Reading from array at index: {}", index);
+        log.warn("SECURITY WARNING: No bounds checking - CWE-125 Out-of-bounds Read vulnerability!");
+
+        Map<String, Object> result = arrayService.readFromBuffer(index);
 
         return ResponseEntity.ok(result);
     }
