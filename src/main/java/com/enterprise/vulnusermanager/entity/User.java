@@ -39,4 +39,11 @@ public class User {
     @Column(nullable = false)
     private String role;
 
+    /**
+     * User account balance
+     * Used for demonstrating CSRF vulnerability (CWE-352)
+     */
+    @Column(nullable = false)
+    private Double balance = 0.0;
+
 }

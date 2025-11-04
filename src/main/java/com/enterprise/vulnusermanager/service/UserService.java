@@ -2,6 +2,9 @@ package com.enterprise.vulnusermanager.service;
 
 import com.enterprise.vulnusermanager.entity.User;
 import com.enterprise.vulnusermanager.repository.UserRepository;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+import jakarta.persistence.Query;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -20,6 +23,9 @@ import java.util.Optional;
 public class UserService {
 
     private final UserRepository userRepository;
+
+    @PersistenceContext
+    private EntityManager entityManager;
 
     /**
      * Save a new user to the database
@@ -70,6 +76,27 @@ public class UserService {
      */
     public boolean existsByUsername(String username) {
         return userRepository.existsByUsername(username);
+    }
+
+    /**
+     * VULNERABLE: SQL Injection via String Concatenation (CWE-89)
+     * Searches users using unsafe JPQL query with string concatenation
+     * NO parameterized query - INTENTIONALLY VULNERABLE for SAST detection
+     * @param query the search query (user-controlled input)
+     * @return list of users matching the search
+     */
+    @SuppressWarnings("unchecked")
+    public List<User> searchUsers(String query) {
+        log.info("Searching users with query: {}", query);
+        log.warn("SECURITY WARNING: Using string concatenation in JPQL - CWE-89 SQL Injection vulnerability!");
+
+        // VULNERABLE: String concatenation instead of parameterized query
+        String jpql = "SELECT u FROM User u WHERE u.username LIKE '%" + query + "%'";
+
+        log.warn("VULNERABLE QUERY: {}", jpql);
+
+        Query jpqlQuery = entityManager.createQuery(jpql);
+        return jpqlQuery.getResultList();
     }
 
 }
